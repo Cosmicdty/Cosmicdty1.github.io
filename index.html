@@ -3,71 +3,48 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 </head>
 <body>
-
 Make sure to run this via a server
 
 <br>
-<video id="video1" style="width: 300px;" autoplay></video>
+<button id="start_stream_button">Start Video Stream</button>
+
+<br>
+<video id="video" style="width: 300px;" autoplay></video>
 <br>  <br>
 <button onclick="predict()">Predict</button>
 <br>
 <p id="result"> </p>
 
 <script>
+  const startStreamButton = document.getElementById('start_stream_button');
+  const video = document.getElementById('video');
 
-  let video = document.getElementById('video1');
-
-  // Get user media for the video stream
-  navigator.mediaDevices.getUserMedia({ video: true })
-          .then(stream => {
-            video.srcObject = stream;
-          })
-          .catch(err => {
-            console.error('Error accessing webcam: ', err);
-          });
+  startStreamButton.onclick = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    } catch (error) {
+      console.error('Error accessing video stream:', error);
+    }
+  };
 
   async function predict() {
-    var model = await tf.loadGraphModel('./model.json');
+    const model = await tf.loadGraphModel('./model.json');
 
-    // Capture frame from video stream
-    let canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    let context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const example = tf.browser.fromPixels(video).cast('float32');
+    const expandedExample = example.expandDims(); // Expand dimensions to match model input shape
 
-    let example = tf.browser.fromPixels(imageData).cast('float32');
-    console.log(example.shape);
-    example = example.reshape([1, example.shape[0], example.shape[1], example.shape[2]]);
+    const prediction = await model.predict(expandedExample);
+    const classScores = await prediction.data();
+    const maxScoreId = classScores.indexOf(Math.max(...classScores));
+    const classes = ["Google pixel 6 pro", "Google pixel 7 pro", "iPhone 14 pro max", "iPhone XS max"];
+    const classNames = ["blue", "red", "green", "yellow"];
 
-    let prediction = await model.predict(example);
-    let class_scores = await prediction.data();
-    let max_score_id = class_scores.indexOf(Math.max(...class_scores));
-    let classes = ["Google pixel 6 pro", "Google pixel 7 pro", "iphone 14 pro max", "iphone XS max"];
+    console.log(classScores);
+    document.getElementById("result").innerHTML = classes[maxScoreId].toString();
 
-    console.log(class_scores);
-    document.getElementById("result").innerHTML = classes[max_score_id].toString();
-
-    // Change background color based on predicted label
-    let body = document.body;
-    switch (classes[max_score_id]) {
-      case "Google pixel 6 pro":
-        body.style.backgroundColor = "blue";
-        break;
-      case "Google pixel 7 pro":
-        body.style.backgroundColor = "red";
-        break;
-      case "iphone 14 pro max":
-        body.style.backgroundColor = "green";
-        break;
-      case "iphone XS max":
-        body.style.backgroundColor = "yellow";
-        break;
-      default:
-        body.style.backgroundColor = "white";
-        break;
-    }
+    // Change background color based on the predicted label
+    document.body.style.backgroundColor = classNames[maxScoreId];
   }
 </script>
 </body>
