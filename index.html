@@ -1,0 +1,74 @@
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+</head>
+<body>
+
+Make sure to run this via a server
+
+<br>
+<video id="video1" style="width: 300px;" autoplay></video>
+<br>  <br>
+<button onclick="predict()">Predict</button>
+<br>
+<p id="result"> </p>
+
+<script>
+
+  let video = document.getElementById('video1');
+
+  // Get user media for the video stream
+  navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            video.srcObject = stream;
+          })
+          .catch(err => {
+            console.error('Error accessing webcam: ', err);
+          });
+
+  async function predict() {
+    var model = await tf.loadGraphModel('./model.json');
+
+    // Capture frame from video stream
+    let canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    let context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    let example = tf.browser.fromPixels(imageData).cast('float32');
+    console.log(example.shape);
+    example = example.reshape([1, example.shape[0], example.shape[1], example.shape[2]]);
+
+    let prediction = await model.predict(example);
+    let class_scores = await prediction.data();
+    let max_score_id = class_scores.indexOf(Math.max(...class_scores));
+    let classes = ["Google pixel 6 pro", "Google pixel 7 pro", "iphone 14 pro max", "iphone XS max"];
+
+    console.log(class_scores);
+    document.getElementById("result").innerHTML = classes[max_score_id].toString();
+
+    // Change background color based on predicted label
+    let body = document.body;
+    switch (classes[max_score_id]) {
+      case "Google pixel 6 pro":
+        body.style.backgroundColor = "blue";
+        break;
+      case "Google pixel 7 pro":
+        body.style.backgroundColor = "red";
+        break;
+      case "iphone 14 pro max":
+        body.style.backgroundColor = "green";
+        break;
+      case "iphone XS max":
+        body.style.backgroundColor = "yellow";
+        break;
+      default:
+        body.style.backgroundColor = "white";
+        break;
+    }
+  }
+</script>
+</body>
+</html>
